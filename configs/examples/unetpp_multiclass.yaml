@@ -1,0 +1,94 @@
+# Multi-class segmentation with UNet++
+# This config demonstrates UNet++ for multi-class segmentation with COCO data
+
+experiment:
+  name: "unetpp-multiclass-example"
+  project: "tutorials"
+  seed: 42
+
+model:
+  architecture: "unet++"
+  task: "multiclass"
+  num_classes: 10
+  encoder_depth: 4
+  decoder_channels: [64, 128, 256, 512]
+  dropout: 0.2
+  norm_layer: "batchnorm"
+  activation: "relu"
+
+data:
+  format: "coco"
+  train:
+    images: "data/train"
+    annotations: "data/annotations/train.json"
+  val:
+    images: "data/val"
+    annotations: "data/annotations/val.json"
+  batch_size: 8
+  num_workers: 4
+
+training:
+  epochs: 150
+  optimizer:
+    name: "adamw"
+    lr: 0.0001
+    weight_decay: 0.01
+  scheduler:
+    name: "cosine"
+    warmup_epochs: 10
+    min_lr: 0.000001
+  loss: "ce_dice"
+  loss_weights:
+    ce: 1.0
+    dice: 1.0
+  amp: true
+  gradient_clip: 1.0
+
+augmentations:
+  train:
+    - name: "resize"
+      height: 512
+      width: 512
+    - name: "horizontal_flip"
+      p: 0.5
+    - name: "vertical_flip"
+      p: 0.5
+    - name: "shift_scale_rotate"
+      shift_limit: 0.1
+      scale_limit: 0.2
+      rotate_limit: 30
+      p: 0.5
+    - name: "color_jitter"
+      brightness: 0.2
+      contrast: 0.2
+      saturation: 0.2
+      p: 0.3
+    - name: "normalize"
+      mean: [0.485, 0.456, 0.406]
+      std: [0.229, 0.224, 0.225]
+  val:
+    - name: "resize"
+      height: 512
+      width: 512
+    - name: "normalize"
+      mean: [0.485, 0.456, 0.406]
+      std: [0.229, 0.224, 0.225]
+
+evaluation:
+  thresh: 0.5
+  iou_high: 0.5
+  iou_low: 0.05
+  soft_pq_method: "sqrt"
+
+tracking:
+  backend: "mlflow"
+  uri: "mlruns"
+  log_every_n_steps: 50
+  log_images: true
+  log_images_every_n_epochs: 10
+
+checkpointing:
+  save_best: true
+  save_last: true
+  monitor: "val/loss"
+  mode: "min"

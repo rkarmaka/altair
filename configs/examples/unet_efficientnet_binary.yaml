@@ -1,0 +1,95 @@
+# Binary segmentation with UNet + EfficientNet-B4 encoder
+# Lightweight and efficient for edge deployment
+
+experiment:
+  name: "unet-efficientnet-binary"
+  project: "medical-imaging"
+  seed: 42
+
+model:
+  architecture: "unet_encoder"
+  task: "binary"
+  num_classes: 1
+
+  # EfficientNet encoder - good balance of accuracy and efficiency
+  encoder: "efficientnet_b4"
+  encoder_weights: "imagenet"
+  encoder_depth: 5
+
+  # Decoder settings
+  decoder_channels: [256, 128, 64, 32, 16]
+  decoder_attention: null  # No attention for faster inference
+
+  # Regularization
+  dropout: 0.3
+
+data:
+  format: "png"
+  train:
+    images: "data/train/images"
+    masks: "data/train/masks"
+  val:
+    images: "data/val/images"
+    masks: "data/val/masks"
+  batch_size: 16
+  num_workers: 4
+
+training:
+  epochs: 80
+
+  optimizer:
+    name: "adamw"
+    lr: 0.0002
+    weight_decay: 0.01
+
+  scheduler:
+    name: "cosine"
+    warmup_epochs: 3
+    min_lr: 0.000001
+
+  loss: "bce_dice"
+  loss_weights:
+    bce: 1.0
+    dice: 1.0
+
+  amp: true
+  gradient_clip: 1.0
+
+augmentations:
+  train:
+    - name: "resize"
+      height: 384
+      width: 384
+    - name: "horizontal_flip"
+      p: 0.5
+    - name: "rotate"
+      limit: 15
+      p: 0.5
+    - name: "random_brightness_contrast"
+      brightness_limit: 0.2
+      contrast_limit: 0.2
+      p: 0.3
+    - name: "gaussian_blur"
+      blur_limit: 3
+      p: 0.1
+    - name: "normalize"
+      mean: [0.485, 0.456, 0.406]
+      std: [0.229, 0.224, 0.225]
+  val:
+    - name: "resize"
+      height: 384
+      width: 384
+    - name: "normalize"
+      mean: [0.485, 0.456, 0.406]
+      std: [0.229, 0.224, 0.225]
+
+tracking:
+  backend: "mlflow"
+  uri: "mlruns"
+  log_every_n_steps: 25
+
+checkpointing:
+  save_best: true
+  save_last: true
+  monitor: "val/loss"
+  mode: "min"
